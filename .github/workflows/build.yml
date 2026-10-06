@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - staging
+      - odin2portal-mic
   workflow_dispatch:
 
 env:
