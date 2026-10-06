@@ -3,7 +3,7 @@ Subject: [PATCH] arm64: dts: qcom: odin2portal: add gpio back buttons
 
 --- a/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
 +++ b/arch/arm64/boot/dts/qcom/qcs8550-ayn-odin2portal.dts
-@@ -292,3 +292,44 @@
+@@ -292,3 +292,61 @@
  	firmware-name = "qcom/sm8550/ayn/odin2portal/aw883xx_acf.bin";
  };
  
@@ -48,3 +48,20 @@ Subject: [PATCH] arm64: dts: qcom: odin2portal: add gpio back buttons
 +	};
 +};
 +
++/* Portal hardware reports one DOUT port on the TX SoundWire controller. */
++&swr2 {
++	qcom,dout-ports = <1>;
++	qcom,ports-sinterval-low =	/bits/ 8 <0x00 0x01 0x01 0x03 0x03>;
++	qcom,ports-offset1 =		/bits/ 8 <0x00 0x00 0x00 0x01 0x01>;
++	qcom,ports-offset2 =		/bits/ 8 <0x00 0x00 0x00 0x00 0x00>;
++	qcom,ports-hstart =		/bits/ 8 <0xff 0xff 0xff 0xff 0xff>;
++	qcom,ports-hstop =		/bits/ 8 <0xff 0xff 0xff 0xff 0xff>;
++	qcom,ports-word-length =	/bits/ 8 <0xff 0xff 0xff 0xff 0xff>;
++	qcom,ports-block-pack-mode =	/bits/ 8 <0xff 0xff 0xff 0xff 0xff>;
++	qcom,ports-block-group-count =	/bits/ 8 <0xff 0xff 0xff 0xff 0xff>;
++	qcom,ports-lane-control =	/bits/ 8 <0xff 0x01 0x02 0x00 0x00>;
++};
++
++&{/sound/wcd-capture-dai-link/codec} {
++	sound-dai = <&wcd938x 1>, <&swr2 1>, <&lpass_txmacro 0>;
++};
