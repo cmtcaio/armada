@@ -88,11 +88,14 @@ jobs:
           done
           [ -z "$need" ] || { sudo apt-get update && sudo apt-get install -y $need; }
 
-      - name: Check signing key
+      - name: Check signing mode
         run: |
-          if [ -z "${{ secrets.SIGNING_SECRET }}" ]; then
-            echo "::error::SIGNING_SECRET is not set — refusing to publish an unsigned image (devices verify ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }})."
+          if [ "${{ github.event.repository.fork }}" != "true" ] && [ -z "${{ secrets.SIGNING_SECRET }}" ]; then
+            echo "::error::SIGNING_SECRET is required for canonical Armada publication."
             exit 1
+          fi
+          if [ "${{ github.event.repository.fork }}" = "true" ] && [ -z "${{ secrets.SIGNING_SECRET }}" ]; then
+            echo "::notice::Fork build will use GitHub OIDC keyless signing."
           fi
 
       - name: Check out source
@@ -259,14 +262,14 @@ jobs:
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        if: env.HAVE_SIGNING_SECRET == 'true'
+        if: env.HAVE_SIGNING_SECRET == 'true' || github.event.repository.fork == true
         env:
           HAVE_SIGNING_SECRET: ${{ secrets.SIGNING_SECRET != '' }}
         with:
           cosign-release: 'v2.6.3'
 
       - name: Sign container image
-        if: env.HAVE_SIGNING_SECRET == 'true'
+        if: env.HAVE_SIGNING_SECRET == 'true' || github.event.repository.fork == true
         run: |
           set -euo pipefail
           IMAGE_FULL="${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}"
@@ -276,7 +279,11 @@ jobs:
           # Sign the digest, not a tag (a concurrent run could re-point the tag).
           # --new-bundle-format=false: bootc's verifier expects the legacy .sig; the
           # default flips in cosign v3.
-          cosign sign -y --new-bundle-format=false --key env://COSIGN_PRIVATE_KEY "${IMAGE_REF}"
+          if [ -n "${COSIGN_PRIVATE_KEY}" ]; then
+            cosign sign -y --new-bundle-format=false --key env://COSIGN_PRIVATE_KEY "${IMAGE_REF}"
+          else
+            cosign sign -y --new-bundle-format=false "${IMAGE_REF}"
+          fi
 
           # Legacy-hosted images also need the canonical identity required by bridge policy.
           if [ "${IMAGE_FULL}" = "${ARMADA_LEGACY_IMAGE}" ]; then
@@ -303,7 +310,7 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
 
       - name: Publish channel tags
-        if: env.HAVE_SIGNING_SECRET == 'true'
+        if: env.HAVE_SIGNING_SECRET == 'true' || github.event.repository.fork == true
         run: |
           set -euo pipefail
           IMAGE_FULL="${IMAGE_REGISTRY}/${IMAGE_NAME}"
